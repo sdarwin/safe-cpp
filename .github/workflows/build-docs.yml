@@ -1,0 +1,56 @@
+name: Convert markdown docs to html
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["master"]
+    paths:
+      - proposal/**
+      - .github/workflows/build-docs.yml
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: cppalliance/wg21:latest
+      options: --user 1001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build docs
+        run: |
+            set -xe
+            whoami || true
+            pwd
+            ls -al
+            # Set this list as needed:
+            list_of_files="draft P3390R0"
+            cd proposal
+            git clone https://github.com/mpark/wg21.git
+            ls -al
+            echo "include wg21/Makefile" > Makefile
+            for file in $list_of_files; do
+                make ${file}.html
+                make ${file}.pdf
+            done
+
+            cp generated/* ../docs/
+            cd ..
+            git add docs/*
+            git config --global user.name 'commitbot'
+            git config --global user.email 'commitbot@boost.org'
+            git commit -m "Docs: update from proposals/"
+            git push
