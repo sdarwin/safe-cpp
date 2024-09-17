@@ -4,18 +4,13 @@ name: Convert markdown docs to html
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["master"]
+    branches: ["master", "develop"]
     paths:
       - proposal/**
       - .github/workflows/build-docs.yml
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,10 +29,6 @@ jobs:
       - name: Build docs
         run: |
             set -xe
-            whoami || true
-            pwd
-            ls -al
-            # Set this list as needed:
             list_of_files="draft P3390R0"
             cd proposal
             git clone https://github.com/mpark/wg21.git
@@ -46,7 +37,6 @@ jobs:
             for file in $list_of_files; do
                 make ${file}.html
             done
-
             cp generated/* ../docs/
             cd ..
             git config --global user.name 'commitbot'
