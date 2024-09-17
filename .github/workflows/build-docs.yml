@@ -1,3 +1,4 @@
+---
 name: Convert markdown docs to html
 
 on:
@@ -44,13 +45,12 @@ jobs:
             echo "include wg21/Makefile" > Makefile
             for file in $list_of_files; do
                 make ${file}.html
-                make ${file}.pdf
             done
 
             cp generated/* ../docs/
             cd ..
-            git add docs/*
             git config --global user.name 'commitbot'
             git config --global user.email 'commitbot@boost.org'
-            git commit -m "Docs: update from proposals/"
+            git add docs/* || true
+            git commit -m "Docs: update from proposal/ md files" || true
             git push
