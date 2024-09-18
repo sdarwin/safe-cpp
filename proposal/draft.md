@@ -12,9 +12,9 @@ toc: true
 toc-depth: 2
 ---
 
-# Introduction
+# Introduction-Draft-9-18-1
 
-## The call for memory safety
+## The call for memory safety-9-18-1
 
 Over the past two years, the United States Government has been issuing warnings about memory-unsafe programming languages with increasing urgency. Much of the country's critical infrastructure relies on software written in C and C++, languages which are very memory _unsafe_, leaving these systems more vulnerable to exploits by adversaries.
 
