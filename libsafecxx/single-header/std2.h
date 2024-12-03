@@ -828,6 +828,10 @@ public:
     delete p_;
   }
 
+  // Delete the copy constructors.
+  box(const box^) = delete;
+  box(const box&) = delete;
+
   static
   box make_default() safe requires(safe(T()))
   {

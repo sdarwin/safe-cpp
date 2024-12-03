@@ -34,7 +34,11 @@ The government papers are backed by industry research. Microsoft's bug telemetry
 
 Security professionals urge projects to migrate away from C++ and adopt memory safe languages. But the scale of the problem is daunting. C++ powers software that has generated trillions of dollars of value. There are many veteran C++ programmers and lots of C++ code. Given how wide-spread C++ is, what can industry really do to improve software quality and reduce vulnerabilities? What are the options for introducing new memory safe code into existing projects and hardening software that already exists?
 
-There's only one popular systems level/non-garbage collected language that provides rigorous memory safety. That's the Rust language.[@rust-language] Although they play in the same space, C++ and Rust have different designs with limited interop capability, making incremental migration from C++ to Rust a painstaking process.
+> Decades of vulnerabilities have proven how difficult it is to prevent memory-corrupting bugs when using C/C++. While garbage-collected languages like C# or Java have proven more resilient to these issues, there are scenarios where they cannot be used. For such cases, we’re betting on Rust as the alternative to C/C++. Rust is a modern language designed to compete with the performance C/C++, but with memory safety and thread safety guarantees built into the language. While we are not able to rewrite everything in Rust overnight, we’ve already adopted Rust in some of the most critical components of Azure’s infrastructure. We expect our adoption of Rust to expand substantially over time.
+>
+> -- <cite>Microsoft Azure security evolution: Embrace secure multitenancy, Confidential Compute, and Rust</cite>[@azure]
+
+There's only one mainstream systems level/non-garbage collected language that provides rigorous memory safety. That's the Rust language.[@rust-language] Although they play in the same space, C++ and Rust have different designs with limited interop capability, making incremental migration from C++ to Rust a painstaking process.
 
 Rust lacks function overloading, templates, inheritance and exceptions. C++ lacks traits, relocation and borrow checking. These discrepancies are responsible for an impedence mismatch when interfacing the two languages. Most code generators for inter-language bindings aren't able to represent features of one language in terms of the features of another. They typically identify a small number of special vocabulary types,[@vocabulary-types] which have first-class ergonomics, and limit functionality of other constructs.
 
@@ -206,7 +210,7 @@ The "billion-dollar mistake" is a type safety problem. Consider `std::unique_ptr
 
 As Hoare observes, the problem comes from conflating two different things, a pointer to an object and an empty state, into the same type and giving them the same interface. Smart pointers should only hold valid pointers. Denying the null state eliminates undefined behavior.
 
-We address the type safety problem by overhauling the object model. Safe C++ features a new kind of move: [_relocation_](#relocation-object-model), also called _destructive move_. The object model is called an _affine_ or a _linear_ type system. Unless explicitly initialized, objects start out _uninitialized_. They can't be used in this state. When you assign to an object, it becomes initialized. When you relocate from an object, it's value is moved and it's reset to uninitialized. If you relocate from an object inside control flow, it becomes _potentially uninitialized_, and its destructor is conditionally executed after reading a compiler-generated drop flag.
+We address the type safety problem by overhauling the object model. Safe C++ features a new kind of move: [_relocation_](#relocation-object-model), also called _destructive move_. The object model is called an _affine_ or a _linear_ type system. Unless explicitly initialized, objects start out _uninitialized_. They can't be used in this state. When you assign to an object, it becomes initialized. When you relocate from an object, its value is moved and it's reset to uninitialized. If you relocate from an object inside control flow, it becomes _potentially uninitialized_, and its destructor is conditionally executed after reading a compiler-generated drop flag.
 
 `std2::box` is our version of `unique_ptr`. It has no null state. There's no default constructor. Dereference it without risk of undefined behavior. If this design is so much safer, why doesn't C++ simply introduce its own fixed `unique_ptr` without a null state? Blame C++11 move semantics.
 
@@ -526,7 +530,7 @@ public:
 };
 ```
 
-The [safety model](#memory-safety-as-terms-and-conditions) establishes rules for where library code must insert panic calls. If a function is marked safe but is internally unsound for some values of its arguments, it should check those arguments and panic before executing the unsafe operation. Unsafe functions generally don't panic because its the responsibility of their callers to observe the preconditions of the function.
+The [safety model](#memory-safety-as-terms-and-conditions) establishes rules for where library code must insert panic calls. If a function is marked safe but is internally unsound for some values of its arguments, it should check those arguments and panic before executing the unsafe operation. Unsafe functions generally don't panic because it's the responsibility of their callers to observe the preconditions of the function.
 
 # Design overview
 
@@ -921,7 +925,7 @@ Garbage collection requires storing objects on the _heap_. But C++ is about _man
 
 ### Use-after-free
 
-`std::string_view` was added to C++17 as a safer alternative to passing character pointers around. Unfortunately, its rvalue-reference constructor is so dangerously designed that its reported to _encourage_ use-after-free bugs.[@string-view-use-after-free]
+`std::string_view` was added to C++17 as a safer alternative to passing character pointers around. Unfortunately, its rvalue-reference constructor is so dangerously designed that it's reported to _encourage_ use-after-free bugs.[@string-view-use-after-free]
 
 [**string_view0.cxx**](https://github.com/cppalliance/safe-cpp/blob/master/proposal/string_view0.cxx) -- [(Compiler Explorer)](https://godbolt.org/z/e3TG6W5Me)
 ```cpp
@@ -1382,7 +1386,7 @@ P11:  f(*ref);
     }
 ```
 
-I've relabelled the example to show function points and region names of variables and loans. If we run live analysis on 'R0, the region for the variable `ref`, we see it's live at points 'R0 = { 4, 8, 9, 10, 11 }. These are the points where its subsequently used. We'll grow the loan regions 'R1 and 'R2 until their constraint equations are satisfied.
+I've relabelled the example to show function points and region names of variables and loans. If we run live analysis on 'R0, the region for the variable `ref`, we see it's live at points 'R0 = { 4, 8, 9, 10, 11 }. These are the points where it's subsequently used. We'll grow the loan regions 'R1 and 'R2 until their constraint equations are satisfied.
 
 `'R1 : 'R0 @ P3` means that starting at P3, the 'R1 contains all points 'R0 does, along all control flow paths, as long as 'R0 is live. 'R1 = { 3, 4 }. Grow 'R2 the same way: 'R2 = { 7, 8, 9, 10, 11 }.
 
@@ -1436,7 +1440,7 @@ Circle tries to identify all three of these points when forming borrow checker e
 
 The invariants that are tested are established with a network of lifetime constraints. It might not be the case that the invalidating action is obviously related to either the place of the loan or the use that extends the loan. More completely describing the chain of constraints could help users diagnose borrow checker errors. But there's a fine line between presenting an error like the one above, which is already pretty wordy, and overwhelming programmers with information.
 
-### Lifetime constraints on called functinos
+### Lifetime constraints on called functions
 
 Borrow checking is easiest to understand when applied to a single function. The function is lowered to a control flow graph, the compiler assigns regions to loans and borrow variables, emits lifetime constraints where there are assignments, iteratively grows regions until the constraints are solved, and walks the instructions, checking for invalidating actions on loans in scope. Within the definition of the function, there's nothing it can't analyze. The complexity arises when passing and receiving borrows through function calls.
 
@@ -1816,6 +1820,8 @@ Since we replaced the named lifetime arguments with template lifetime parameters
 A class template's instantiation doesn't depend on the lifetimes of its users. `std2::vector<string_view/a>` is transformed to `std2::vector<string_view/T0.0.0>/a`. `T0.0.0` is the implicitly declared lifetime parameter, which becomes the lifetime argument on the template argument, and `/a` is the user's lifetime argument that was hoisted out of the _template-argument-list_ and appended to the class specialization.
 
 In the current safety model, this transformation only occurs for bound lifetime template parameters with the `typename T+` syntax. It's not done for all template parameters, because that would interfere with C++'s partial and explicit specialization facilities.
+
+**(See [post-submission note](#post-submission-developments) from November 2024)**
 
 ```cpp
 template<typename T0, typename T1>
@@ -2549,7 +2555,7 @@ Lifetime safety also guarantees that the `lock_guard` is in scope (meaning the m
 
 Interior mutability is a legal loophole around exclusivity. You're still limited to one mutable borrow or any number of shared borrows to an object. Types with a deconfliction strategy use `unsafe_cell` to safely strip the const off shared borrows, allowing users to mutate the protected resource. 
 
-Safe C++ and Rust and conflate exclusive access with mutable borrows and shared access with const borrows. It's is an economical choice, because one type qualifier, `const` or `mut`, also determines exclusivity. But the cast-away-const model of interior mutability is an awkward consequence. But this design is not the only way: The Ante language[@ante] experiments with separate `own mut` and `shared mut` qualifiers. That's really attractive, because you're never mutating something through a const reference. This three-state system doesn't map onto C++'s existing type system as easily, but that doesn't mean the const/mutable borrow treatment, which does integrate elegantly, is the most expressive. A `shared` type qualifier merits investigation during the course of this project.
+Safe C++ and Rust conflate exclusive access with mutable borrows and shared access with const borrows. It's an economical choice, because one type qualifier, `const` or `mut`, also determines exclusivity. But the cast-away-const model of interior mutability is an awkward consequence. This design may not be the only way: The Ante language[@ante] experiments with separate `own mut` and `shared mut` qualifiers. That's really attractive, because you're never mutating something through a const reference. This three-state system doesn't map onto C++'s existing type system as easily, but that doesn't mean the const/mutable borrow treatment, which does integrate elegantly, is the most expressive. A `shared` type qualifier merits investigation during the course of this project.
 
 * `T^` - Exclusive mutable access. Permits standard conversion to `shared T^` and `const T^`.
 * `shared T^` - Shared mutable access. Permits standard conversion to `const T^`. Only types that enforce interior mutability have overloads with shared mutable access.
@@ -2604,7 +2610,7 @@ class [[
 
 `std2::mutex` is another candidate for use with `std2::arc`. This type is thread safe. As shown in the [thread safety](#thread-safety) example, it provides threads with exclusive access to its interior data using a synchronization object. The borrow checker prevents the reference to the inner data from being used outside of the mutex's lock. Therefore, `std2::mutex` is `sync` if its inner type is `send`. Why make it conditional on `send` when the mutex is already providing threads with exclusive access to the inner value? This provides protection for the rare type with thread affinity. A type is `send` if it can both be copied to a different thread _and used_ by a different thread.
 
-`std2::arc<std2::mutex<T>>` is `send` if `std2::mutex<T>` is `send` and `sync`. `std2::mutex<T>` is `send` and `sync` if `T` is `send`. Since most types are `send` by construction, we can safely mutate shared state over multiple threads as long as its wrapped in a `std2::mutex` and that's owned by an `std2::arc`. The `arc` provides shared ownership. The `mutex` provides shared mutation.
+`std2::arc<std2::mutex<T>>` is `send` if `std2::mutex<T>` is `send` and `sync`. `std2::mutex<T>` is `send` and `sync` if `T` is `send`. Since most types are `send` by construction, we can safely mutate shared state over multiple threads as long as it's wrapped in a `std2::mutex` and that's owned by an `std2::arc`. The `arc` provides shared ownership. The `mutex` provides shared mutation.
 
 ```cpp
 class thread {
@@ -2736,9 +2742,38 @@ It's already possible to write C++ code that is less burdened by cleanup paths t
 
 This extended relocation feature is some of the ripest low-hanging fruit for improving the safety experience in Safe C++.
 
+# Post-submission developments
+
+**November 2024:**
+
+The treatment of lifetime binder template parameters can be greatly simplified by dropping the [`<typename T+>`](#lifetimes-and-templates) syntax and _always_ generating lifetime template parameters when used in class or function templates. This is discussed in a [Github Issue](https://github.com/cppalliance/safe-cpp/issues/12).
+
+We can walk through the formerly problematic case of `std::is_same`. We want the partial selected even when the specialization's template arguments have lifetime binders.
+
+```cpp
+std::is_same<int^, int^>::value;
+
+// Implicitly add placeholders to unbound binders in class template arguments.
+// The above transforms to:
+std::is_same<int^/_, int^_>::value; 
+
+// During normalization, replace lifetime arguments with invented
+// template lifetime parameters. 
+// If the complete template was chosen (but it won't be), you'd get:
+std::is_same<int^/#T0, int^/#T1>/_/_::value
+```
+
+The `is_same` specialization is created with two _proxy lifetimes_. When a complete type is needed the compiler searches for the best partial or explicit specialization. This will now involve stripping all lifetime binders. `int^/#T0` and `int^/#T1` are different types, but after being stripped, you're left with `int^` and `int^` which are the same type. They'll match the partial specialization when that's also stripped of its proxy lifetimes.
+
+The template arguments of the partial or explicit specialization have different lifetimes than the template arguments of the complete template. But this should be expected: the template arguments of partial or explicit specializations are already different than the primary template's. Outside of the template definition, users always refer to the specialization through the template arguments on the complete template. That remains the case in this modification.
+
+If a partial or explicit specialization is chosen, that could be regarded as a loss of information, since two invented lifetime parameters that were independent get collapsed into one. Fortunately this doesn't compromise safety since borrow checking is performed after instantiation on complete templates. It was misguided for me to worry about the loss of lifetime independence that would result from partial specialization, since why else would the class provide those specializations if they didn't want them to be used?
+
+We should also revise the policy for using lifetime parameters in class definitions. Named lifetimes must be used by non-static data members, or else the definition is ill-formed. Template lifetime parameters, which are implicit, need not be used by non-static data members. These are _unbound lifetimes_, and that should be okay. The lifetimes in the specialization of `std::is_same` don't mean anything, and can be safely ignored.
+
 # Implementation guidance
 
-The intelligence behind the _ownership and borrowing_ safety model resides in the compiler's middle-end, in its _MIR analysis_ passes. The first thing compiler engineers should focus on when pursuing memory safety is to lower their frontend's AST to MIR. Several compiled languages already pass through a mid-level IR: Swift passes through SIL,[@sil] Rust passes through MIR,[@mir] and Circle passes through it's mid-level IR when targeting the new object model. There is an effort called ClangIR[@clangir] to lower Clang to an MLIR dialect called CIR, but the project is in an early phase and doesn't have enough coverage to support the language or library features described in this document.
+The intelligence behind the _ownership and borrowing_ safety model resides in the compiler's middle-end, in its _MIR analysis_ passes. The first thing compiler engineers should focus on when pursuing memory safety is to lower their frontend's AST to MIR. Several compiled languages already pass through a mid-level IR: Swift passes through SIL,[@sil] Rust passes through MIR,[@mir] and Circle passes through its mid-level IR when targeting the new object model. There is an effort called ClangIR[@clangir] to lower Clang to an MLIR dialect called CIR, but the project is in an early phase and doesn't have enough coverage to support the language or library features described in this document.
 
 The AST->MIR and MIR->LLVM pipelines (or whatever codegen is used) fully replaces the compiler's old AST->LLVM codegen. It is more difficult to lower through MIR than directly emitting LLVM, but implementing new codegen is not a very large investment. You can look into Circle's MIR support with the `-print-mir` and `-print-mir-drop` cmdline options, which print the MIR before and after drop elaboration, respectively.
 
@@ -2826,6 +2861,11 @@ references:
     citation-label: secure-by-design
     title: Secure by Design &colon; Google's Perspective on Memory Safety
     URL: https://research.google/pubs/secure-by-design-googles-perspective-on-memory-safety/
+
+  - id: azure
+    citation-label: azure
+    title: Microsoft Azure security evolution&colon; Embrace secure multitenancy, Confidential Compute, and Rust
+    URL: https://azure.microsoft.com/en-us/blog/microsoft-azure-security-evolution-embrace-secure-multitenancy-confidential-compute-and-rust/
 
   - id: rust-language
     citation-label: rust-language
